@@ -7,6 +7,13 @@ from abc import ABC, abstractmethod
 from hybrid_md.state_objects import HybridMD, StepKinds
 
 
+def get_decision_maker(state: HybridMD):
+    if len(state.adaptive_method_parameters) > 0:
+        return AdaptiveDecisionMaker(state)
+    else:
+        return SimpleDecisionMaker(state)
+
+
 class DecisionMakerBase(ABC):
     """Base class for decision making
 
@@ -19,6 +26,14 @@ class DecisionMakerBase(ABC):
     @abstractmethod
     def get_step_kind(self, md_iteration: int) -> StepKinds:
         """ Perform the decision making in any way needed
+        """
+        ...
+
+    @abstractmethod
+    def post_step_action(self, md_iteration: int):
+        """ Actions post any DFT calculation step
+
+        This happens before dumping the state
         """
         ...
 
@@ -55,6 +70,10 @@ class SimpleDecisionMaker(DecisionMakerBase):
 
         return StepKinds.GENERIC
 
+    def post_step_action(self, md_iteration: int):
+        # not doing anything in this case
+        pass
+
 
 class AdaptiveDecisionMaker(DecisionMakerBase):
     """
@@ -62,8 +81,50 @@ class AdaptiveDecisionMaker(DecisionMakerBase):
     the interval based on accuracy target being met or not.
     """
 
-    def get_step_kind(self, md_iteration: int):
-        raise NotImplementedError
+    def __init__(self, state: HybridMD):
+        super().__init__(state)
+
+        self.n_min = state.adaptive_method_parameters.get("n_min")
+        self.n_max = state.adaptive_method_parameters.get("n_max")
+        self.factor = state.adaptive_method_parameters.get("factor")
+
+        self.step_kind = None
+
+    def get_step_kind(self, md_iteration: int) -> StepKinds:
+
+        if md_iteration < self.state.num_initial_steps:
+            self.state.current_check_interval = self.state.check_interval
+            return StepKinds.INITIAL
+
+        if md_iteration == self.state.num_initial_steps:
+            # we need to remember this one as well
+            self.state.last_check_step = md_iteration
+            return StepKinds.LAST_INITIAL
+
+        if (
+            md_iteration - self.state.last_check_step
+        ) == self.state.current_check_interval:
+            # This is the crucial difference
+            self.state.last_check_step = md_iteration
+            return StepKinds.CHECK
+
+        return StepKinds.GENERIC
+
+    def post_step_action(self, md_iteration: int):
+        # we change the step size in case we had a checking step
+        if self.state.do_comparison:
+            if self.state.check_tolerances():
+                # increase N
+                self.state.current_check_interval = min(
+                    int(self.state.current_check_interval * self.factor),
+                    self.n_max,
+                )
+            else:
+                # decrease N
+                self.state.current_check_interval = max(
+                    int(self.state.current_check_interval / self.factor),
+                    self.n_min,
+                )
 
 
 class PreStepReturnNumber:
