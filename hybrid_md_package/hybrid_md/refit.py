@@ -115,10 +115,52 @@ def refit_fe_h(state: HybridMD):
     return refit_generic(state, descriptor_strs, default_sigma)
 
 
-def refit_turbo_two_species(state: HybridMD, species_str: str, soap_n_sparse=200):
+def refit_c_h(state: HybridMD):
+    # Hydrogen and Carbon - for H2 in C60
+
+    # Hydrogen and Iron
+
+    delta_2b = 2.0
+    delta_soap = 0.5
+
+    # soap
+    soap_n_sparse = 400
+
+    # 2B
+    desc_str_2b = (
+        "distance_Nb order=2 n_sparse=20 cutoff=4.5 cutoff_transition_width=1.0 "
+        "compact_clusters covariance_type=ard_se theta_uniform=1.0 sparse_method=uniform "
+        f"f0=0.0 add_species=T delta={delta_2b} "
+    )
+
+    # regular SOAP
+    soap_common = (
+        f"soap n_sparse={soap_n_sparse} n_max=8 l_max=4 delta={delta_soap} covariance_type=dot_product "
+        f"zeta=4 sparse_method=cur_points n_species=2 add_species=F "
+    )
+    desc_str_soap = (
+            f"{soap_common} cutoff=3.0 cutoff_transition_width=0.6 atom_sigma=0.3 Z=1 "
+            + "species_Z={{1 6}} : "
+              f"{soap_common} cutoff=5.0 cutoff_transition_width=1.0 atom_sigma=0.5 Z=6 "
+            + "species_Z={{1 6}}"
+    )
+
+    descriptor_strs = desc_str_2b + " : " + desc_str_soap
+
+    # use lower kernel regularisation
+    default_sigma = "0.002 0.050 1.0 1.0"
+
+    return refit_generic(state, descriptor_strs, default_sigma)
+
+
+def refit_turbo_two_species(
+    state: HybridMD, species_str: str, soap_n_sparse=200
+):
     # refit with turbo-soap, given two species
 
-    frames_train = ase.io.read(state.xyz_filename, ":") + state.get_previous_data()
+    frames_train = (
+        ase.io.read(state.xyz_filename, ":") + state.get_previous_data()
+    )
     delta = np.std(
         [at.info["QM_energy"] / len(at) for at in frames_train if len(at) > 1]
     )
@@ -181,11 +223,15 @@ def refit_generic(
 
     # 2B + SOAP model
     gp_name = "GAP.xml"
-    frames_train = ase.io.read(state.xyz_filename, ":") + state.get_previous_data()
+    frames_train = (
+        ase.io.read(state.xyz_filename, ":") + state.get_previous_data()
+    )
 
     if descriptor_strs is None:
         # generic 2B+SOAP, need the frames for delta
-        delta = np.std([at.info["QM_energy"] / len(at) for at in frames_train]) / 4
+        delta = (
+            np.std([at.info["QM_energy"] / len(at) for at in frames_train]) / 4
+        )
         desc_str_2b = (
             f"distance_Nb order=2 n_sparse=20 cutoff=4.5 cutoff_transition_width=1.0 "
             f"compact_clusters covariance_type=ard_se theta_uniform=1.0 sparse_method=uniform "
@@ -226,7 +272,7 @@ def refit_generic(
         file.write(fit_str)
 
     # fit the 2b+SOAP model
-    os.environ["OMP_NUM_THREADS"] = "40"
+    os.environ["OMP_NUM_THREADS"] = "32"
     proc = subprocess.run(
         fit_str, shell=True, capture_output=True, text=True, check=True
     )
