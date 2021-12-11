@@ -37,6 +37,7 @@ def initialise(seed):
 
     # create the initial state object
     state = HybridMD(seed)
+    state.current_check_interval = state.check_interval
     state.next_is_pre_step = True
 
     # write state to disc, only `next_is_pre_step` relevant though

@@ -95,9 +95,13 @@ class AdaptiveDecisionMaker(DecisionMakerBase):
         if md_iteration < self.state.num_initial_steps:
             self.state.current_check_interval = self.state.check_interval
             return StepKinds.INITIAL
+        elif self.state.num_initial_steps == 0 and md_iteration == 0:
+            # to function in case we have no initial steps
+            self.state.last_check_step = 0
 
         if md_iteration == self.state.num_initial_steps:
             # we need to remember this one as well
+            self.state.current_check_interval = self.state.check_interval
             self.state.last_check_step = md_iteration
             return StepKinds.LAST_INITIAL
 
@@ -119,12 +123,25 @@ class AdaptiveDecisionMaker(DecisionMakerBase):
                     int(self.state.current_check_interval * self.factor),
                     self.n_max,
                 )
+                word = "INCREASE"
             else:
                 # decrease N
                 self.state.current_check_interval = max(
                     int(self.state.current_check_interval / self.factor),
                     self.n_min,
                 )
+                word = "DECREASE"
+
+            # write log, common
+            self.state.write_to_tmp_log(
+                [
+                    f"               Hybrid-MD: {word} interval to "
+                    f"{self.state.current_check_interval:6} "
+                    f"at iter {md_iteration:8}"
+                    f"   <-- Hybrid-MD-Adapt"
+                ],
+                append=True,
+            )
 
 
 class PreStepReturnNumber:
