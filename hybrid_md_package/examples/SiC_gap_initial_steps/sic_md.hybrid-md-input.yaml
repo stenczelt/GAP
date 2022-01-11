@@ -14,3 +14,7 @@ tolerances:
   fmax: null    # eV/A
   frmse: null   # eV/A
   vmax: null    # eV (virial)
+adaptive_method_parameters:
+  n_min: 5
+  n_max: 100
+  factor: 2

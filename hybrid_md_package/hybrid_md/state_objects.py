@@ -61,6 +61,10 @@ class HybridMD:
         self.use_virial = False  # if we are using virials in the calculations
         self.previous_data = None
         self.refit_function_name = None
+        self.refit_default_sigma = None
+        self.refit_descriptor_str = None
+        self.refit_extra_gap_opts = None
+        self.refit_num_threads = None
         self.e0 = None
 
         # read input -> tolerances, etc.
@@ -131,6 +135,10 @@ class HybridMD:
         self.num_initial_steps = data.get("num_initial_steps", 0)
         self.previous_data = data.get("previous_data", None)
         self.refit_function_name = data.get("refit_function_name", None)
+        self.refit_descriptor_str = data.get("refit_descriptor_str", None)
+        self.refit_default_sigma = data.get("refit_default_sigma", None)
+        self.refit_extra_gap_opts = data.get("refit_extra_gap_opts", None)
+        self.refit_num_threads = data.get("refit_num_threads", None)
         self.e0 = data.get("e0", "average")
         self.adaptive_method_parameters = data.get(
             "adaptive_method_parameters", dict()
