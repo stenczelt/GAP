@@ -18,6 +18,8 @@ import ase.io
 import numpy as np
 from hybrid_md.state_objects import HybridMD
 
+DEFAULT_FIT_NUM_THREADS = "32"
+
 
 def refit(state: HybridMD):
     """Refit a GAP model, with in-place update
@@ -30,7 +32,12 @@ def refit(state: HybridMD):
 
     """
     if state.refit_function_name is None:
-        return refit_generic(state, None, None)
+        return refit_generic(
+            state,
+            descriptor_strs=state.refit_descriptor_str,
+            default_sigma=state.refit_default_sigma,
+            extra_gap_parameters=state.refit_extra_gap_opts,
+        )
     else:
         refit_function_import = state.refit_function_name
 
@@ -42,7 +49,9 @@ def refit(state: HybridMD):
         try:
             module = importlib.import_module(module_name)
         except ModuleNotFoundError:
-            raise RuntimeError(f"Refit function's module not found: {module_name}")
+            raise RuntimeError(
+                f"Refit function's module not found: {module_name}"
+            )
 
         # class of the calculator
         if hasattr(module, function_name):
@@ -115,10 +124,52 @@ def refit_fe_h(state: HybridMD):
     return refit_generic(state, descriptor_strs, default_sigma)
 
 
-def refit_turbo_two_species(state: HybridMD, species_str: str, soap_n_sparse=200):
+def refit_c_h(state: HybridMD):
+    # Hydrogen and Carbon - for H2 in C60
+
+    # Hydrogen and Iron
+
+    delta_2b = 2.0
+    delta_soap = 0.5
+
+    # soap
+    soap_n_sparse = 400
+
+    # 2B
+    desc_str_2b = (
+        "distance_Nb order=2 n_sparse=20 cutoff=4.5 cutoff_transition_width=1.0 "
+        "compact_clusters covariance_type=ard_se theta_uniform=1.0 sparse_method=uniform "
+        f"f0=0.0 add_species=T delta={delta_2b} "
+    )
+
+    # regular SOAP
+    soap_common = (
+        f"soap n_sparse={soap_n_sparse} n_max=8 l_max=4 delta={delta_soap} covariance_type=dot_product "
+        f"zeta=4 sparse_method=cur_points n_species=2 add_species=F "
+    )
+    desc_str_soap = (
+        f"{soap_common} cutoff=3.0 cutoff_transition_width=0.6 atom_sigma=0.3 Z=1 "
+        + "species_Z={{1 6}} : "
+        f"{soap_common} cutoff=5.0 cutoff_transition_width=1.0 atom_sigma=0.5 Z=6 "
+        + "species_Z={{1 6}}"
+    )
+
+    descriptor_strs = desc_str_2b + " : " + desc_str_soap
+
+    # use lower kernel regularisation
+    default_sigma = "0.002 0.050 1.0 1.0"
+
+    return refit_generic(state, descriptor_strs, default_sigma)
+
+
+def refit_turbo_two_species(
+    state: HybridMD, species_str: str, soap_n_sparse=200
+):
     # refit with turbo-soap, given two species
 
-    frames_train = ase.io.read(state.xyz_filename, ":") + state.get_previous_data()
+    frames_train = (
+        ase.io.read(state.xyz_filename, ":") + state.get_previous_data()
+    )
     delta = np.std(
         [at.info["QM_energy"] / len(at) for at in frames_train if len(at) > 1]
     )
@@ -159,7 +210,10 @@ def refit_turbo_two_species(state: HybridMD, species_str: str, soap_n_sparse=200
 
 
 def refit_generic(
-    state: HybridMD, descriptor_strs: str = None, default_sigma: str = None
+    state: HybridMD,
+    descriptor_strs: str = None,
+    default_sigma: str = None,
+    extra_gap_parameters: str = None,
 ):
     """Refit a GAP model, with in-place update
 
@@ -174,6 +228,8 @@ def refit_generic(
         descriptor strings, ':' separated, no brackets around them
     default_sigma : str
         default sigma, four numbers separated by ':'
+    extra_gap_parameters : str
+        extra GAP parameters to be appended to the
 
     """
     if default_sigma is None:
@@ -181,11 +237,15 @@ def refit_generic(
 
     # 2B + SOAP model
     gp_name = "GAP.xml"
-    frames_train = ase.io.read(state.xyz_filename, ":") + state.get_previous_data()
+    frames_train = (
+        ase.io.read(state.xyz_filename, ":") + state.get_previous_data()
+    )
 
     if descriptor_strs is None:
         # generic 2B+SOAP, need the frames for delta
-        delta = np.std([at.info["QM_energy"] / len(at) for at in frames_train]) / 4
+        delta = (
+            np.std([at.info["QM_energy"] / len(at) for at in frames_train]) / 4
+        )
         desc_str_2b = (
             f"distance_Nb order=2 n_sparse=20 cutoff=4.5 cutoff_transition_width=1.0 "
             f"compact_clusters covariance_type=ard_se theta_uniform=1.0 sparse_method=uniform "
@@ -197,6 +257,9 @@ def refit_generic(
             f"delta={delta} covariance_type=dot_product zeta=4 sparse_method=cur_points"
         )
         descriptor_strs = desc_str_2b + " : " + desc_str_soap
+
+    if extra_gap_parameters is None:
+        extra_gap_parameters = " sparse_jitter=1.0e-8 "
 
     # save the previous model
     if os.path.isfile(gp_name):
@@ -214,19 +277,25 @@ def refit_generic(
         e0_method = f"e0={state.e0}"
 
     fit_str = (
-        f"gap_fit at_file=train.xyz gp_file={gp_name} "
-        f"energy_parameter_name=QM_energy force_parameter_name=QM_forces"
+        f"gap_fit at_file=train.xyz gp_file={gp_name}"
+        f" energy_parameter_name=QM_energy"
+        f" force_parameter_name=QM_forces"
         f" virial_parameter_name=QM_virial_NOPE "
-        f"sparse_jitter=1.0e-8 do_copy_at_file=F sparse_separate_file=T "
-        f"default_sigma={{ {default_sigma} }} {e0_method} "
-        f"gap={{ {descriptor_strs} }}"
+        f" do_copy_at_file=F sparse_separate_file=T "
+        f" default_sigma={{ {default_sigma} }} {e0_method} "
+        f" gap={{ {descriptor_strs} }} "
+        f" {extra_gap_parameters}"
     )
 
     with open("debug_output.txt", "w") as file:
         file.write(fit_str)
 
-    # fit the 2b+SOAP model
-    os.environ["OMP_NUM_THREADS"] = "40"
+    # fit the model
+    if state.refit_num_threads is None:
+        num_threads = DEFAULT_FIT_NUM_THREADS
+    else:
+        num_threads = str(state.refit_num_threads)
+    os.environ["OMP_NUM_THREADS"] = num_threads
     proc = subprocess.run(
         fit_str, shell=True, capture_output=True, text=True, check=True
     )

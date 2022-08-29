@@ -1,0 +1,27 @@
+#  Hybrid MD decision making package
+#
+#  Copyright (c) Tamas K. Stenczel 2021.
+
+# this is an input file for PP-Hybrid MD
+
+can_update: true # if updates are to be performed
+check_interval: 5
+num_initial_steps: 5
+
+tolerances:
+  ediff: 0.02  # eV
+  fmax: null    # eV/A
+  frmse: null   # eV/A
+  vmax: null    # eV (virial)
+
+# Adaptively setting the checking interval
+adaptive_method_parameters:
+  n_min: 5
+  n_max: 100
+  factor: 1.25
+
+# refitting options -> this is overwritten if you specify `refit_function_name`
+refit_default_sigma: "0.002 0.050 0.1 1.0"
+refit_descriptor_str: "distance_Nb order=2 n_sparse=20 cutoff=4.5 cutoff_transition_width=1.0 compact_clusters covariance_type=ard_se theta_uniform=1.0 sparse_method=uniform f0=0.0 add_species=T delta=0.1 : soap n_sparse=200 n_max=8 l_max=4 cutoff=4.0 cutoff_transition_width=1.0 atom_sigma=0.5 add_species=True delta=0.05 covariance_type=dot_product zeta=4 sparse_method=cur_points"
+refit_extra_gap_opts: "sparse_jitter = 1.0e-8"
+e0: "average"
