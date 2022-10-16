@@ -53,9 +53,11 @@ module gap_fit_module
   private
 
   !----------------------------------------------------------------------------
-  ! Public Routines
+  ! Public Routines & Types
   !----------------------------------------------------------------------------
   public :: gap_fit_main_program
+  public :: CMD_STR_LENGTH
+  public :: gap_fit
 
   !----------------------------------------------------------------------------
   ! Everything else private
@@ -63,6 +65,8 @@ module gap_fit_module
 
   integer, parameter :: SPARSE_LENGTH = 10000
   integer, parameter :: THETA_LENGTH = 10000
+  ! apparently equal to dictionary_module's STRING_LENGTH
+  integer, parameter :: CMD_STR_LENGTH = 10240
 
   integer, parameter :: E0_ISOLATED = 1
   integer, parameter :: E0_AVERAGE = 2
@@ -84,7 +88,7 @@ module gap_fit_module
      config_type_sigma_string, core_param_file, gp_file, template_file, force_mask_parameter_name, &
      condition_number_norm, linear_system_dump_file, config_file
 
-     character(len=10240) :: command_line = ''
+     character(len=CMD_STR_LENGTH) :: command_line = ''
      real(dp), dimension(total_elements) :: e0, local_property0
      real(dp) :: max_cutoff
      real(dp), dimension(4) :: default_sigma
@@ -133,11 +137,12 @@ module gap_fit_module
 
 contains
 
-  subroutine gap_fit_main_program()
+  subroutine gap_fit_main_program(main_gap_fit)
     !=========================================================================!
     ! Main gap_fit program: for use as a library                              !
     !-------------------------------------------------------------------------!
     ! Arguments:                                                              !
+    !  (1) main_gap_fit: gap_fit main object
     !-------------------------------------------------------------------------!
     ! Parent module variables used:                                           !
     !
@@ -149,14 +154,16 @@ contains
     !  gap_fit
     !-------------------------------------------------------------------------!
     ! Necessary conditions:                                                   !
-    !
+    !  - system_initialise() has been called before
     !-------------------------------------------------------------------------!
     ! Written by Tamas K. Stenczel, 06/09/2022                                !
     !=========================================================================!
+    ! todo: refactor this into parts & separate routine for dryrun, sparsify, & fit
 
-    type(gap_fit) :: main_gap_fit
+    implicit none
 
-    call system_initialise(verbosity=PRINT_NORMAL, enable_timing=.false.)
+    type(gap_fit), intent(inout) :: main_gap_fit
+
     call gap_fit_init_mpi_scalapack(main_gap_fit)
 
     call gap_fit_parse_command_line(main_gap_fit)
@@ -191,8 +198,7 @@ contains
 
     if (main_gap_fit%dryrun) then
       call print('Exit before major allocations because dryrun is true.')
-      call system_finalise()
-      stop
+      return
     end if
 
     call set_baselines(main_gap_fit) ! sets e0 etc.
@@ -205,8 +211,8 @@ contains
         call initialise(main_gap_fit%gp_sp, main_gap_fit%my_gp)
         call gap_fit_print_xml(main_gap_fit, main_gap_fit%gp_file, main_gap_fit%sparseX_separate_file)
       end if
-      call system_finalise()
-      stop
+      call print('Exit before fitting, only sparsification was performed.')
+      return
     end if
 
     call enable_timing()
@@ -219,7 +225,7 @@ contains
     if (gap_fit_is_root(main_gap_fit)) call gap_fit_print_xml(main_gap_fit, main_gap_fit%gp_file, main_gap_fit%sparseX_separate_file)
 
     call system_timer('GP sparsify')
-    call system_finalise()
+    return
   end subroutine gap_fit_main_program
 
   subroutine gap_fit_parse_command_line(this)
@@ -1747,7 +1753,7 @@ contains
      logical, intent(in), optional :: ws_significant
 
      type(inoutput) :: atfile
-     character(len=10240) :: line
+     character(len=CMD_STR_LENGTH) :: line
      integer :: iostat
 
      call initialise(atfile,trim(this))

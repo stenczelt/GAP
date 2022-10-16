@@ -58,7 +58,7 @@ GAP1_F95_FILES += descriptors gp_predict descriptors_wrapper clustering
 GAP1_F95_SOURCES = ${addsuffix .f95, ${GAP1_F95_FILES}}
 GAP1_F95_OBJS = ${addsuffix .o, ${GAP1_F95_FILES}}
 
-GAP2_F95_FILES = gp_fit gap_fit_module 
+GAP2_F95_FILES = gp_fit gap_fit_module gap_fit_wrapper
 GAP2_F95_SOURCES = ${addsuffix .f95, ${GAP2_F95_FILES}}
 GAP2_F95_OBJS = ${addsuffix .o, ${GAP2_F95_FILES}}
 
