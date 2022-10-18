@@ -55,6 +55,7 @@ module gap_fit_module
   !----------------------------------------------------------------------------
   ! Public Routines & Types
   !----------------------------------------------------------------------------
+  public :: gap_fit_read_command_line
   public :: gap_fit_main_program
   public :: CMD_STR_LENGTH
   public :: gap_fit
@@ -228,8 +229,44 @@ contains
     return
   end subroutine gap_fit_main_program
 
+  subroutine gap_fit_read_command_line(this)
+    !% read the main command line options
+    !% Use this if gap_fit is used as the main program
+    !% alternatively set the
+
+    implicit none
+
+    ! call parameters
+    type(gap_fit), intent(inout), target :: this
+
+    ! internals
+    type(Dictionary) :: dummy
+    character(len=CMD_STR_LENGTH) :: cmd = ''
+
+    ! we need a dictionary to pass to param_read_args, we are not using it
+    ! for anything here, we are simply reading the command line
+    call initialise(dummy)
+
+    ! read the command line of the currently running program
+    if (param_read_args(dummy, ignore_unknown=.true., command_line=this%command_line)) then
+      ! success
+      call print('Command line parameters read - GAP is the main program')
+    else
+      ! failure
+      call system_abort("Could not read command line in gap_fit")
+    end if
+
+    ! needed deallocations
+    call finalise(dummy)
+
+  end subroutine gap_fit_read_command_line
+
   subroutine gap_fit_parse_command_line(this)
   !% This subroutine parses the main command line options.
+  !%
+  !% nb. this is not reading them, only parsing from the gap_fit object's
+  !%   command_line, use gap_fit_read_command_line for reading in main program
+
      type(gap_fit), intent(inout), target :: this
 
      type(Dictionary) :: params
@@ -294,17 +331,18 @@ contains
 
      call initialise(params)
 
-     call param_register(params, 'config_file', '', config_file, has_value_target=has_config_file, &
-          help_string="File as alternative input (newlines converted to spaces)")
-
      ! check if config file is given, ignore everything else
      ! prepare parsing of config file or command line string later
-     if (param_read_args(params, ignore_unknown=.true., command_line=this%command_line)) then
+     call param_register(params, 'config_file', '', config_file, has_value_target=has_config_file, &
+          help_string="File as alternative input (newlines converted to spaces)")
+     if (param_read_line(params, this%command_line, ignore_unknown=.true.)) then
         if (has_config_file) then
            inquire(file=config_file, exist=file_exists)
            if (.not. file_exists) call system_abort("Config file does not exist: "//config_file)
            call read(config_str, config_file, keep_lf=.false., mpi_comm=this%mpi_obj%communicator, mpi_id=this%mpi_obj%my_proc)
         end if
+     else
+       call system_abort('Exit: Could not read params from command_line given')
      end if
      if (.not. has_config_file) config_str = this%command_line
 
