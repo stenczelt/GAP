@@ -36,7 +36,7 @@
 program gap_fit_program
 
   use system_module, only : system_initialise, PRINT_NORMAL, system_finalise
-  use gap_fit_module, only : gap_fit, gap_fit_main_program, gap_fit_read_command_line
+  use gap_fit_module, only : gap_fit, gap_fit_main_logic, gap_fit_read_command_line
 
   implicit none
 
@@ -53,7 +53,7 @@ program gap_fit_program
   call gap_fit_read_command_line(main_gap_fit)
 
   ! call the library routine to do the actual work
-  call gap_fit_main_program(main_gap_fit)
+  call gap_fit_main_logic(main_gap_fit)
 
   ! finalise the program
   call system_finalise()

@@ -56,7 +56,7 @@ module gap_fit_module
   ! Public Routines & Types
   !----------------------------------------------------------------------------
   public :: gap_fit_read_command_line
-  public :: gap_fit_main_program
+  public :: gap_fit_main_logic
   public :: CMD_STR_LENGTH
   public :: gap_fit
 
@@ -138,27 +138,23 @@ module gap_fit_module
 
 contains
 
-  subroutine gap_fit_main_program(main_gap_fit)
-    !=========================================================================!
-    ! Main gap_fit program: for use as a library                              !
-    !-------------------------------------------------------------------------!
-    ! Arguments:                                                              !
-    !  (1) main_gap_fit: gap_fit main object
-    !-------------------------------------------------------------------------!
-    ! Parent module variables used:                                           !
-    !
-    !-------------------------------------------------------------------------!
-    ! Modules used:                                                           !
-    !
-    !-------------------------------------------------------------------------!
-    ! Key Internal Variables:                                                 !
-    !  gap_fit
-    !-------------------------------------------------------------------------!
-    ! Necessary conditions:                                                   !
-    !  - system_initialise() has been called before
-    !-------------------------------------------------------------------------!
-    ! Written by Tamas K. Stenczel, 06/09/2022                                !
-    !=========================================================================!
+  subroutine gap_fit_main_logic(main_gap_fit)
+    !% Main gap_fit program - logic for fitting
+    !%
+    !% You need to set the command_line member of the gap_fit input object and
+    !% you are good to go. This serves the program
+    !%
+    !% Assumptions
+    !% -----------
+    !% - system is initialised (MPI, printing, etc.)
+    !% - main_gap_fit%command_line is set (from cli options, or wlsewhere)
+    !%
+    !% Authors:
+    !% --------
+    !% Refactored by Tamas K. Stenczel on 06/09/2022 - from the gap_fit
+    !% program, which was written by various people over the years.
+    !%
+
     ! todo: refactor this into parts & separate routine for dryrun, sparsify, & fit
 
     implicit none
@@ -227,7 +223,7 @@ contains
 
     call system_timer('GP sparsify')
     return
-  end subroutine gap_fit_main_program
+  end subroutine gap_fit_main_logic
 
   subroutine gap_fit_read_command_line(this)
     !% read the main command line options

@@ -64,7 +64,7 @@ contains
     !%
     !% Written by Tamas K. Stenczel, 20/09/2022
 
-    use gap_fit_module, only : CMD_STR_LENGTH, gap_fit_main_program, gap_fit
+    use gap_fit_module, only : CMD_STR_LENGTH, gap_fit_main_logic, gap_fit
     use system_module, only : PRINT_SILENT, PRINT_NORMAL, system_initialise
     use MPI_context_module, only : MPI_context, Initialise
 
@@ -97,7 +97,7 @@ contains
     main_gap_fit%command_line = command_line
 
     ! do the actual fitting
-    call gap_fit_main_program(main_gap_fit)
+    call gap_fit_main_logic(main_gap_fit)
 
   end subroutine gap_fit_wrapper
 
