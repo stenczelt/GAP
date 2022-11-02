@@ -71,8 +71,7 @@ contains
     implicit none
 
     ! call params
-    character(len=CMD_STR_LENGTH), intent(in) :: command_line
-!    character(len=CMD_STR_LENGTH), intent(in) :: param_filename
+    character(len = CMD_STR_LENGTH), intent(in) :: command_line
     integer, intent(in), optional :: mpi_communicator
     integer, intent(in), optional :: output_unit
 
@@ -81,14 +80,14 @@ contains
 
     ! saved internals
     type(MPI_context), save :: mpi_glob
-    logical, save :: first_run=.true.
+    logical, save :: first_run = .true.
 
     ! Initialisation of system & MPI - can be done only once
     if (first_run) then
       ! system & IO
-      call system_initialise(verbosity=PRINT_SILENT, mainlog_unit=output_unit)
+      call system_initialise(verbosity = PRINT_SILENT, mainlog_unit = output_unit)
       ! initialise MPI with the communicator given
-      call Initialise(mpi_glob, communicator=mpi_communicator)
+      call Initialise(mpi_glob, communicator = mpi_communicator)
     else
       ! todo: include checks for MPI comm & output unit being unchanged
     end if
@@ -102,5 +101,32 @@ contains
   end subroutine gap_fit_wrapper
 
 end module gap_fit_wrapper_module
+
+!% -----------------------------
+!% individual wrappers for codes
+!%
+!% implemented ones
+!%  - CASTEP (for accelerated MD)
+!%
+subroutine gap_fit_wrapper_castep(command_line, mpi_communicator, output_unit)
+  !% Wrapper for GAP-FIT to be used in Castep
+  !%
+  !% Nothing special compared to the main wrapper yet.
+  !%
+  !% Written by Tamas K. Stenczel, 02/11/2022
+
+  use gap_fit_module, only : CMD_STR_LENGTH
+  use gap_fit_wrapper_module, only : gap_fit_wrapper
+
+  implicit none
+
+  ! call params
+  character(len = CMD_STR_LENGTH), intent(in) :: command_line
+  integer, intent(in), optional :: mpi_communicator
+  integer, intent(in), optional :: output_unit
+
+  call gap_fit_wrapper(command_line, mpi_communicator, output_unit)
+
+end subroutine gap_fit_wrapper_castep
 
 
