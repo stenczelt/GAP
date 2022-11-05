@@ -64,7 +64,7 @@ contains
     !%
     !% Written by Tamas K. Stenczel, 20/09/2022
 
-    use gap_fit_module, only : CMD_STR_LENGTH, gap_fit_main_logic, gap_fit
+    use gap_fit_module, only : CMD_STR_LENGTH, gap_fit_main_logic, gap_fit, gap_fit_init_mpi_scalapack
     use system_module, only : PRINT_SILENT, PRINT_NORMAL, system_initialise
     use MPI_context_module, only : MPI_context, Initialise
 
@@ -85,9 +85,12 @@ contains
     ! Initialisation of system & MPI - can be done only once
     if (first_run) then
       ! system & IO
-      call system_initialise(verbosity = PRINT_SILENT, mainlog_unit = output_unit)
+      call system_initialise(verbosity = PRINT_NORMAL, mainlog_unit = output_unit)
       ! initialise MPI with the communicator given
       call Initialise(mpi_glob, communicator = mpi_communicator)
+
+      ! initialise ScalaPack's MPI context
+      call gap_fit_init_mpi_scalapack(main_gap_fit, communicator = mpi_communicator)
     else
       ! todo: include checks for MPI comm & output unit being unchanged
     end if

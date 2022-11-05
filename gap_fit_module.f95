@@ -55,6 +55,7 @@ module gap_fit_module
   !----------------------------------------------------------------------------
   ! Public Routines & Types
   !----------------------------------------------------------------------------
+  public :: gap_fit_init_mpi_scalapack
   public :: gap_fit_read_command_line
   public :: gap_fit_main_logic
   public :: CMD_STR_LENGTH
@@ -160,8 +161,6 @@ contains
     implicit none
 
     type(gap_fit), intent(inout) :: main_gap_fit
-
-    call gap_fit_init_mpi_scalapack(main_gap_fit)
 
     call gap_fit_parse_command_line(main_gap_fit)
     call gap_fit_parse_gap_str(main_gap_fit)
@@ -2256,10 +2255,16 @@ contains
    end if
  end subroutine gap_fit_read_core_param_file
 
-  subroutine gap_fit_init_mpi_scalapack(this)
+  subroutine gap_fit_init_mpi_scalapack(this, communicator)
     type(gap_fit), intent(inout) :: this
+    integer, intent(in), optional :: communicator
 
-    call initialise(this%mpi_obj)
+    if (present(communicator)) then
+      call initialise(this%mpi_obj, communicator=communicator)
+    else
+      call initialise(this%mpi_obj)
+    end if
+
     call initialise(this%ScaLAPACK_obj, this%mpi_obj, np_r=this%mpi_obj%n_procs, np_c=1)
     if (this%mpi_obj%n_procs > 1 .and. .not. this%ScaLAPACK_obj%active) then
       call system_abort('Init MPI+Scalapack: n_procs > 1 but ScaLAPACK is inactive.')

@@ -36,7 +36,7 @@
 program gap_fit_program
 
   use system_module, only : system_initialise, PRINT_NORMAL, system_finalise
-  use gap_fit_module, only : gap_fit, gap_fit_main_logic, gap_fit_read_command_line
+  use gap_fit_module, only : gap_fit, gap_fit_main_logic, gap_fit_read_command_line, gap_fit_init_mpi_scalapack
 
   implicit none
 
@@ -48,6 +48,7 @@ program gap_fit_program
 
   ! initialise the system & MPI
   call system_initialise(verbosity=PRINT_NORMAL, enable_timing=.false.)
+  call gap_fit_init_mpi_scalapack(main_gap_fit)
 
   ! read the command line parameters
   call gap_fit_read_command_line(main_gap_fit)
