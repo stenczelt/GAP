@@ -27,7 +27,8 @@ def main():
 
 @main.command("initialise")
 @click.argument("seed", type=click.STRING)
-def initialise(seed):
+@click.argument("md-iteration", type=click.INT)
+def initialise(seed, md_iteration):
     """Initialisation of the Hybrid MD run.
 
     Answer: integer exit code (three bits encoded)
@@ -40,6 +41,9 @@ def initialise(seed):
     state.current_check_interval = state.check_interval
     state.next_is_pre_step = True
 
+    # decide if we are continuing a calculation
+    continuation = md_iteration > 0
+
     # write state to disc, only `next_is_pre_step` relevant though
     state.dump()
 
@@ -47,6 +51,7 @@ def initialise(seed):
         print(
             f"Hybrid-MD: INIT Step, exit: {0 if state.num_initial_steps == 0 else 1} "
             f" -- num_initial_steps {state.num_initial_steps}",
+            f" -- continuation {continuation}",
         )
 
     # write the log for the .castep file
