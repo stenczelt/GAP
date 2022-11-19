@@ -11,6 +11,8 @@ import ase.io
 import numpy as np
 import yaml
 
+from hybrid_md.settings import Settings
+
 
 @unique
 class StepKinds(Enum):
@@ -29,23 +31,6 @@ class HybridMD:
     next_ab_initio = False
     next_is_pre_step = True  # do them in order
 
-    # tolerance
-    tolerance_met = True
-    tolerances = dict(
-        ediff=None,  # in eV
-        fmax=None,  # in eV/A
-        frmse=None,  # in eV/A
-        vmax=None,  # in eV -- not used this time
-    )
-    # if model can be updated, if False then we can only measure performance
-    can_update = False
-
-    # intervals
-    check_interval = 1
-    num_initial_steps = 0
-
-    # for the adaptive interval method
-    adaptive_method_parameters = dict()
     last_check_step = -1
     current_check_interval = -1
 
@@ -54,19 +39,12 @@ class HybridMD:
 
         # associated sub-state objects
         self.xyz_this_run = SubStateXYZ(seed)
+        self.settings = Settings()
 
         self.state_filename = f"{self.seed}.hybrid-md-state.yaml"
         self.log_filename = f"{self.seed}.hybrid-md-temporary-log"
         self.input_filename = f"{self.seed}.hybrid-md-input.yaml"
         self.xyz_filename = f"{self.seed}.hybrid-md.xyz"
-
-        self.previous_data = None
-        self.refit_function_name = None
-        self.refit_default_sigma = None
-        self.refit_descriptor_str = None
-        self.refit_extra_gap_opts = None
-        self.refit_num_threads = None
-        self.e0 = None
 
         # read input -> tolerances, etc.
         self.read_input()
@@ -75,7 +53,7 @@ class HybridMD:
         self.md_iteration = md_iteration
 
         # validation
-        self.validate_settings()
+        self.settings.validate()
 
     # -----------------------------------------------------------------------------------
     # IO for carried info
@@ -115,29 +93,7 @@ class HybridMD:
         self.next_is_pre_step = True
 
     def read_input(self):
-        # reads input settings of calculation
-        with open(self.input_filename, "r") as file:
-            data = yaml.safe_load(file)
-
-        # unpack
-        self.tolerances = data.get("tolerances", dict())
-        self.can_update = data.get("can_update", False)
-        self.check_interval = data.get("check_interval", 1)
-        self.num_initial_steps = data.get("num_initial_steps", 0)
-        self.previous_data = data.get("previous_data", None)
-        self.refit_function_name = data.get("refit_function_name", None)
-        self.refit_descriptor_str = data.get("refit_descriptor_str", None)
-        self.refit_default_sigma = data.get("refit_default_sigma", None)
-        self.refit_extra_gap_opts = data.get("refit_extra_gap_opts", None)
-        self.refit_num_threads = data.get("refit_num_threads", None)
-        self.e0 = data.get("e0", "average")
-        self.adaptive_method_parameters = data.get("adaptive_method_parameters", dict())
-
-    def validate_settings(self):
-        # any validation of the settings
-
-        if self.num_initial_steps > 0 and not self.can_update:
-            raise ValueError("Requesting initial DFT steps but cannot update model!")
+        self.settings.read_input(self.input_filename)
 
     # -----------------------------------------------------------------------------------
     # step's IO
@@ -170,7 +126,7 @@ class HybridMD:
     def _tolerance_line(self, name: str, value: float, tolerance, unit: str):
         if tolerance is not None:
             # checks tolerance as well
-            self.tolerance_met = self.tolerances and tolerance > value
+            self.tolerance_met = self.settings.tolerances and tolerance > value
 
             # line to be printed
             yes_no = self._bool_to_str(tolerance > value)
@@ -275,7 +231,7 @@ class HybridMD:
     def get_tolerance(self, key: str):
         if not self.xyz_this_run.use_virial and key in ["vmax"]:
             return None
-        return self.tolerances.get(key, None)
+        return self.settings.tolerances.get(key, None)
 
     # -----------------------------------------------------------------------------------
     # XYZ IO
@@ -284,11 +240,11 @@ class HybridMD:
 
     def get_previous_data(self):
         # read the previous data from files given
-        if self.previous_data is None:
+        if self.settings.previous_data is None:
             return []
         else:
             frames = []
-            for fn in self.previous_data:
+            for fn in self.settings.previous_data:
                 frames.extend(ase.io.read(fn, ":"))
             return frames
 

@@ -38,7 +38,7 @@ def initialise(seed, md_iteration):
 
     # create the initial state object
     state = HybridMD(seed)
-    state.current_check_interval = state.check_interval
+    state.current_check_interval = state.settings.check_interval
     state.next_is_pre_step = True
 
     # decide if we are continuing a calculation
@@ -49,8 +49,8 @@ def initialise(seed, md_iteration):
 
     if VERBOSE:
         print(
-            f"Hybrid-MD: INIT Step, exit: {0 if state.num_initial_steps == 0 else 1} "
-            f" -- num_initial_steps {state.num_initial_steps}",
+            f"Hybrid-MD: INIT Step, exit: {0 if state.settings.num_initial_steps == 0 else 1} "
+            f" -- num_initial_steps {state.settings.num_initial_steps}",
             f" -- continuation {continuation}",
         )
 
@@ -58,7 +58,7 @@ def initialise(seed, md_iteration):
     state.io_initial_step_banner()
 
     # exit status -- log reading always ON
-    if state.num_initial_steps == 0:
+    if state.settings.num_initial_steps == 0:
         sys.exit(1)
     else:
         sys.exit(3)
@@ -135,7 +135,7 @@ def post_step(seed, md_iteration):
 
         # 3. decide if we are fitting or not
         tolerance_met = state.check_tolerances()
-        if not tolerance_met and state.can_update:
+        if not tolerance_met and state.settings.can_update:
             state.do_update_model = True
 
         # 4. IO: errors of this step and cumulative ones as well

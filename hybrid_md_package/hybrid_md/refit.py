@@ -31,15 +31,15 @@ def refit(state: HybridMD):
     state: HybridMD
 
     """
-    if state.refit_function_name is None:
+    if state.settings.refit_function_name is None:
         return refit_generic(
             state,
-            descriptor_strs=state.refit_descriptor_str,
-            default_sigma=state.refit_default_sigma,
-            extra_gap_parameters=state.refit_extra_gap_opts,
+            descriptor_strs=state.settings.refit_descriptor_str,
+            default_sigma=state.settings.refit_default_sigma,
+            extra_gap_parameters=state.settings.refit_extra_gap_opts,
         )
     else:
-        refit_function_import = state.refit_function_name
+        refit_function_import = state.settings.refit_function_name
 
         # separate import path
         module_name = ".".join(refit_function_import.split(".")[:-1])
@@ -261,10 +261,10 @@ def refit_generic(
         os.remove("train.xyz.idx")
 
     # assemble the fitting string
-    if state.e0 in ["average", "isolated"]:
-        e0_method = f"e0_method={state.e0}"
+    if state.settings.e0 in ["average", "isolated"]:
+        e0_method = f"e0_method={state.settings.e0}"
     else:
-        e0_method = f"e0={state.e0}"
+        e0_method = f"e0={state.settings.e0}"
 
     fit_str = (
         f"gap_fit at_file=train.xyz gp_file={gp_name}"
@@ -281,10 +281,10 @@ def refit_generic(
         file.write(fit_str)
 
     # fit the model
-    if state.refit_num_threads is None:
+    if state.settings.refit_num_threads is None:
         num_threads = DEFAULT_FIT_NUM_THREADS
     else:
-        num_threads = str(state.refit_num_threads)
+        num_threads = str(state.settings.refit_num_threads)
     os.environ["OMP_NUM_THREADS"] = num_threads
     proc = subprocess.run(
         fit_str, shell=True, capture_output=True, text=True, check=True
