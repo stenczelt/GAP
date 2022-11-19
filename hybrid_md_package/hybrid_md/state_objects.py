@@ -1,10 +1,10 @@
 #  Hybrid MD decision making package
 #
-#  Copyright (c) Tamas K. Stenczel 2021.
+#  Copyright (c) Tamas K. Stenczel 2021-2022.
 """
 Objects representing the state of a calculation
 """
-
+from abc import ABC
 from enum import Enum, auto, unique
 
 import ase.io
@@ -14,8 +14,7 @@ import yaml
 
 @unique
 class StepKinds(Enum):
-    """The kinds of steps we can have while the MD
-    """
+    """The kinds of steps we can have while the MD"""
 
     INITIAL = auto()
     LAST_INITIAL = auto()
@@ -53,12 +52,14 @@ class HybridMD:
     def __init__(self, seed: str, md_iteration: int = None):
         self.seed = seed
 
+        # associated sub-state objects
+        self.xyz_this_run = SubStateXYZ(seed)
+
         self.state_filename = f"{self.seed}.hybrid-md-state.yaml"
         self.log_filename = f"{self.seed}.hybrid-md-temporary-log"
         self.input_filename = f"{self.seed}.hybrid-md-input.yaml"
         self.xyz_filename = f"{self.seed}.hybrid-md.xyz"
 
-        self.use_virial = False  # if we are using virials in the calculations
         self.previous_data = None
         self.refit_function_name = None
         self.refit_default_sigma = None
@@ -72,16 +73,6 @@ class HybridMD:
 
         # dummy arrays for results
         self.md_iteration = md_iteration
-        self.len_atoms = 1
-        self.atomic_numbers = np.zeros(1)
-
-        self.energy_ff = np.zeros(1)
-        self.forces_pp = np.zeros(1)
-        self.virial_pp = np.zeros(1)
-
-        self.energy_qm = np.zeros(1)
-        self.forces_pw = np.zeros(1)
-        self.virial_pw = np.zeros(1)
 
         # validation
         self.validate_settings()
@@ -140,9 +131,7 @@ class HybridMD:
         self.refit_extra_gap_opts = data.get("refit_extra_gap_opts", None)
         self.refit_num_threads = data.get("refit_num_threads", None)
         self.e0 = data.get("e0", "average")
-        self.adaptive_method_parameters = data.get(
-            "adaptive_method_parameters", dict()
-        )
+        self.adaptive_method_parameters = data.get("adaptive_method_parameters", dict())
 
     def validate_settings(self):
         # any validation of the settings
@@ -202,10 +191,10 @@ class HybridMD:
         checked_tolerances = [True]
 
         for val, tol in [
-            (self.get_ediff(), self.get_tolerance("ediff")),
-            (self.get_fmax(), self.get_tolerance("fmax")),
-            (self.get_frmse(), self.get_tolerance("frmse")),
-            (self.get_vmax(), self.get_tolerance("vmax")),
+            (self.xyz_this_run.get_ediff(), self.get_tolerance("ediff")),
+            (self.xyz_this_run.get_fmax(), self.get_tolerance("fmax")),
+            (self.xyz_this_run.get_frmse(), self.get_tolerance("frmse")),
+            (self.xyz_this_run.get_vmax(), self.get_tolerance("vmax")),
         ]:
             if tol is None:
                 continue
@@ -229,16 +218,28 @@ class HybridMD:
             "    Parameter |      value       |     tolerance    |    units   | OK? | <-- Hybrid-MD\n",
             separator,
             self._tolerance_line(
-                "|Ediff|", self.get_ediff(), self.get_tolerance("ediff"), "eV/at"
+                "|Ediff|",
+                self.xyz_this_run.get_ediff(),
+                self.get_tolerance("ediff"),
+                "eV/at",
             ),
             self._tolerance_line(
-                "max |Fdiff|", self.get_fmax(), self.get_tolerance("fmax"), "eV/Å",
+                "max |Fdiff|",
+                self.xyz_this_run.get_fmax(),
+                self.get_tolerance("fmax"),
+                "eV/Å",
             ),
             self._tolerance_line(
-                "force RMSE", self.get_frmse(), self.get_tolerance("frmse"), "eV/Å",
+                "force RMSE",
+                self.xyz_this_run.get_frmse(),
+                self.get_tolerance("frmse"),
+                "eV/Å",
             ),
             self._tolerance_line(
-                "max |Vdiff|", self.get_vmax(), self.get_tolerance("vmax"), "eV"
+                "max |Vdiff|",
+                self.xyz_this_run.get_vmax(),
+                self.get_tolerance("vmax"),
+                "eV",
             ),
             separator,
             f"{refit_str:>72} <-- Hybrid-MD\n",
@@ -254,16 +255,17 @@ class HybridMD:
 
         lines = [
             separator,
-            f"  Cumulative RMSE       value            count: {self.get_count():>8}  |    units   |{postfix}\n",
+            f"  Cumulative RMSE       value            count: {self.xyz_this_run.get_count():>8}"
+            f"  |    units   |{postfix}\n",
             separator,
             self._tolerance_line_cumulative(
-                "Energy", self.get_cumulative_energy_rmse(), "eV/atom"
+                "Energy", self.xyz_this_run.get_cumulative_energy_rmse(), "eV/atom"
             ),
             self._tolerance_line_cumulative(
-                "Forces", self.get_cumulative_force_rmse(), "eV/Å"
+                "Forces", self.xyz_this_run.get_cumulative_force_rmse(), "eV/Å"
             ),
             self._tolerance_line_cumulative(
-                "Virial", self.get_cumulative_virial_rmse(), "eV"
+                "Virial", self.xyz_this_run.get_cumulative_virial_rmse(), "eV"
             ),
             separator,
         ]
@@ -271,9 +273,57 @@ class HybridMD:
         self.write_to_tmp_log(lines, append=True)
 
     def get_tolerance(self, key: str):
-        if not self.use_virial and key in ["vmax"]:
+        if not self.xyz_this_run.use_virial and key in ["vmax"]:
             return None
         return self.tolerances.get(key, None)
+
+    # -----------------------------------------------------------------------------------
+    # XYZ IO
+    def read_xyz(self):
+        self.xyz_this_run.read_xyz()
+
+    def get_previous_data(self):
+        # read the previous data from files given
+        if self.previous_data is None:
+            return []
+        else:
+            frames = []
+            for fn in self.previous_data:
+                frames.extend(ase.io.read(fn, ":"))
+            return frames
+
+    @staticmethod
+    def _bool_to_str(value):
+        if value:
+            return "Yes"
+        return " No"
+
+
+class SeedAwareState(ABC):
+    def __init__(self, seed: str):
+        self.seed = seed
+
+
+class SubStateXYZ(SeedAwareState):
+    """Represents XYZ structural data gathered during the accelerated MD"""
+
+    def __init__(self, seed: str):
+        super().__init__(seed)
+        self.xyz_filename = f"{self.seed}.hybrid-md.xyz"
+
+        self.use_virial = False
+
+        # arrays: filled with data from structures
+        self.len_atoms = 1
+        self.atomic_numbers = np.zeros(1)
+
+        self.energy_ff = np.zeros(1)
+        self.forces_pp = np.zeros(1)
+        self.virial_pp = np.zeros(1)
+
+        self.energy_qm = np.zeros(1)
+        self.forces_pw = np.zeros(1)
+        self.virial_pw = np.zeros(1)
 
     # -----------------------------------------------------------------------------------
     # XYZ IO
@@ -297,16 +347,6 @@ class HybridMD:
             self.use_virial = True
             self.virial_pw = self._unpack_info(frames, "QM_virial")
             self.virial_pp = self._unpack_info(frames, "FF_virial")
-
-    def get_previous_data(self):
-        # read the previous data from files given
-        if self.previous_data is None:
-            return []
-        else:
-            frames = []
-            for fn in self.previous_data:
-                frames.extend(ase.io.read(fn, ":"))
-            return frames
 
     # -----------------------------------------------------------------------------------
     # last step's error measures
@@ -365,14 +405,6 @@ class HybridMD:
     # helper functions
 
     @staticmethod
-    def _unpack_info(frames, key: str):
-        return np.array([at.info[key] for at in frames])
-
-    @staticmethod
-    def _unpack_arrays(frames, key: str):
-        return np.array([at.arrays[key] for at in frames])
-
-    @staticmethod
     def _rmse(array):
         return np.sqrt(np.mean(np.square(array)))
 
@@ -384,7 +416,9 @@ class HybridMD:
         return self.atomic_numbers == atomic_number
 
     @staticmethod
-    def _bool_to_str(value):
-        if value:
-            return "Yes"
-        return " No"
+    def _unpack_info(frames, key: str):
+        return np.array([at.info[key] for at in frames])
+
+    @staticmethod
+    def _unpack_arrays(frames, key: str):
+        return np.array([at.arrays[key] for at in frames])

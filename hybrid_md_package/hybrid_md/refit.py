@@ -24,7 +24,7 @@ DEFAULT_FIT_NUM_THREADS = "32"
 def refit(state: HybridMD):
     """Refit a GAP model, with in-place update
 
-    This is a generic one, which can import the functio
+    This is a generic one, which can import the function
 
     Parameters
     ----------
@@ -49,9 +49,7 @@ def refit(state: HybridMD):
         try:
             module = importlib.import_module(module_name)
         except ModuleNotFoundError:
-            raise RuntimeError(
-                f"Refit function's module not found: {module_name}"
-            )
+            raise RuntimeError(f"Refit function's module not found: {module_name}")
 
         # class of the calculator
         if hasattr(module, function_name):
@@ -162,14 +160,10 @@ def refit_c_h(state: HybridMD):
     return refit_generic(state, descriptor_strs, default_sigma)
 
 
-def refit_turbo_two_species(
-    state: HybridMD, species_str: str, soap_n_sparse=200
-):
+def refit_turbo_two_species(state: HybridMD, species_str: str, soap_n_sparse=200):
     # refit with turbo-soap, given two species
 
-    frames_train = (
-        ase.io.read(state.xyz_filename, ":") + state.get_previous_data()
-    )
+    frames_train = ase.io.read(state.xyz_filename, ":") + state.get_previous_data()
     delta = np.std(
         [at.info["QM_energy"] / len(at) for at in frames_train if len(at) > 1]
     )
@@ -237,15 +231,11 @@ def refit_generic(
 
     # 2B + SOAP model
     gp_name = "GAP.xml"
-    frames_train = (
-        ase.io.read(state.xyz_filename, ":") + state.get_previous_data()
-    )
+    frames_train = ase.io.read(state.xyz_filename, ":") + state.get_previous_data()
 
     if descriptor_strs is None:
         # generic 2B+SOAP, need the frames for delta
-        delta = (
-            np.std([at.info["QM_energy"] / len(at) for at in frames_train]) / 4
-        )
+        delta = np.std([at.info["QM_energy"] / len(at) for at in frames_train]) / 4
         desc_str_2b = (
             f"distance_Nb order=2 n_sparse=20 cutoff=4.5 cutoff_transition_width=1.0 "
             f"compact_clusters covariance_type=ard_se theta_uniform=1.0 sparse_method=uniform "
