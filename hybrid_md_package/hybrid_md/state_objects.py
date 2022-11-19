@@ -45,6 +45,11 @@ class HybridMD:
     check_interval = 1
     num_initial_steps = 0
 
+    # for the adaptive interval method
+    adaptive_method_parameters = dict()
+    last_check_step = -1
+    current_check_interval = -1
+
     def __init__(self, seed: str, md_iteration: int = None):
         self.seed = seed
 
@@ -56,6 +61,10 @@ class HybridMD:
         self.use_virial = False  # if we are using virials in the calculations
         self.previous_data = None
         self.refit_function_name = None
+        self.refit_default_sigma = None
+        self.refit_descriptor_str = None
+        self.refit_extra_gap_opts = None
+        self.refit_num_threads = None
         self.e0 = None
 
         # read input -> tolerances, etc.
@@ -96,6 +105,8 @@ class HybridMD:
             do_update_model=self.do_update_model,
             next_is_pre_step=self.next_is_pre_step,
             next_ab_initio=self.next_ab_initio,
+            last_check_step=self.last_check_step,
+            current_check_interval=self.current_check_interval,
         )
 
     def unpack_dump(self, values: dict):
@@ -103,6 +114,8 @@ class HybridMD:
         self.do_update_model = values.get("do_update_model")
         self.next_is_pre_step = values.get("next_is_pre_step")
         self.next_ab_initio = values.get("next_ab_initio")
+        self.last_check_step = values.get("last_check_step")
+        self.current_check_interval = values.get("current_check_interval")
 
     def reset(self):
         # reset the info
@@ -122,7 +135,14 @@ class HybridMD:
         self.num_initial_steps = data.get("num_initial_steps", 0)
         self.previous_data = data.get("previous_data", None)
         self.refit_function_name = data.get("refit_function_name", None)
+        self.refit_descriptor_str = data.get("refit_descriptor_str", None)
+        self.refit_default_sigma = data.get("refit_default_sigma", None)
+        self.refit_extra_gap_opts = data.get("refit_extra_gap_opts", None)
+        self.refit_num_threads = data.get("refit_num_threads", None)
         self.e0 = data.get("e0", "average")
+        self.adaptive_method_parameters = data.get(
+            "adaptive_method_parameters", dict()
+        )
 
     def validate_settings(self):
         # any validation of the settings
