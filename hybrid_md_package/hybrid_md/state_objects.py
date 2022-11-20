@@ -25,23 +25,14 @@ class StepKinds(Enum):
 
 
 class HybridMD:
-    # info we want to carry
-    do_comparison = False  # print the error table
-    do_update_model = False  # REFIT
-    next_ab_initio = False
-    next_is_pre_step = True  # do them in order
-
-    last_check_step = -1
-    current_check_interval = -1
-
     def __init__(self, seed: str, md_iteration: int = None):
         self.seed = seed
 
         # associated sub-state objects
         self.xyz_this_run = SubStateXYZ(seed)
         self.settings = Settings()
+        self.carry = CarriedState(seed)
 
-        self.state_filename = f"{self.seed}.hybrid-md-state.yaml"
         self.log_filename = f"{self.seed}.hybrid-md-temporary-log"
         self.input_filename = f"{self.seed}.hybrid-md-input.yaml"
         self.xyz_filename = f"{self.seed}.hybrid-md.xyz"
@@ -57,40 +48,6 @@ class HybridMD:
 
     # -----------------------------------------------------------------------------------
     # IO for carried info
-    def dump(self):
-        # save state to file
-        with open(self.state_filename, "w") as file:
-            yaml.dump(self.carry_dict(), file)
-
-    def load(self):
-        # load state from file
-        with open(self.state_filename, "r") as file:
-            values = yaml.safe_load(file)
-        self.unpack_dump(values)
-
-    def carry_dict(self):
-        return dict(
-            do_comparison=self.do_comparison,
-            do_update_model=self.do_update_model,
-            next_is_pre_step=self.next_is_pre_step,
-            next_ab_initio=self.next_ab_initio,
-            last_check_step=self.last_check_step,
-            current_check_interval=self.current_check_interval,
-        )
-
-    def unpack_dump(self, values: dict):
-        self.do_comparison = values.get("do_comparison")
-        self.do_update_model = values.get("do_update_model")
-        self.next_is_pre_step = values.get("next_is_pre_step")
-        self.next_ab_initio = values.get("next_ab_initio")
-        self.last_check_step = values.get("last_check_step")
-        self.current_check_interval = values.get("current_check_interval")
-
-    def reset(self):
-        # reset the info
-        self.do_comparison = False
-        self.do_update_model = False
-        self.next_is_pre_step = True
 
     def read_input(self):
         self.settings.read_input(self.input_filename)
@@ -163,7 +120,7 @@ class HybridMD:
     def error_table(self):
         # line formatting
         separator = " -------------+------------------+------------------+------------+-----+ <-- Hybrid-MD\n"
-        refit_str = "Refitting!" if self.do_update_model else "No Refit"
+        refit_str = "Refitting!" if self.carry.do_update_model else "No Refit"
 
         # container for table -> write to file later
         lines = [
@@ -258,6 +215,54 @@ class HybridMD:
 class SeedAwareState(ABC):
     def __init__(self, seed: str):
         self.seed = seed
+
+
+class CarriedState(SeedAwareState):
+    do_comparison = False  # print the error table
+    do_update_model = False  # REFIT
+    next_ab_initio = False
+    next_is_pre_step = True  # do them in order
+    last_check_step = -1
+    current_check_interval = -1
+
+    def __init__(self, seed: str):
+        super().__init__(seed)
+        self.state_filename = f"{self.seed}.hybrid-md-state.yaml"
+
+    def dump(self):
+        # save state to file
+        with open(self.state_filename, "w") as file:
+            yaml.dump(self.carry_dict(), file)
+
+    def load(self):
+        # load state from file
+        with open(self.state_filename, "r") as file:
+            values = yaml.safe_load(file)
+        self.unpack_dump(values)
+
+    def carry_dict(self):
+        return dict(
+            do_comparison=self.do_comparison,
+            do_update_model=self.do_update_model,
+            next_is_pre_step=self.next_is_pre_step,
+            next_ab_initio=self.next_ab_initio,
+            last_check_step=self.last_check_step,
+            current_check_interval=self.current_check_interval,
+        )
+
+    def unpack_dump(self, values: dict):
+        self.do_comparison = values.get("do_comparison")
+        self.do_update_model = values.get("do_update_model")
+        self.next_is_pre_step = values.get("next_is_pre_step")
+        self.next_ab_initio = values.get("next_ab_initio")
+        self.last_check_step = values.get("last_check_step")
+        self.current_check_interval = values.get("current_check_interval")
+
+    def reset(self):
+        # reset the info
+        self.do_comparison = False
+        self.do_update_model = False
+        self.next_is_pre_step = True
 
 
 class SubStateXYZ(SeedAwareState):

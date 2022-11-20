@@ -38,14 +38,14 @@ def initialise(seed, md_iteration):
 
     # create the initial state object
     state = HybridMD(seed)
-    state.current_check_interval = state.settings.check_interval
-    state.next_is_pre_step = True
+    state.carry.current_check_interval = state.settings.check_interval
+    state.carry.next_is_pre_step = True
 
     # decide if we are continuing a calculation
     continuation = md_iteration > 0
 
     # write state to disc, only `next_is_pre_step` relevant though
-    state.dump()
+    state.carry.dump()
 
     if VERBOSE:
         print(
@@ -80,20 +80,20 @@ def pre_step(seed, md_iteration):
 
     # state of object
     state = HybridMD(seed, md_iteration)
-    state.load()
-    state.reset()
-    if not state.next_is_pre_step:
+    state.carry.load()
+    state.carry.reset()
+    if not state.carry.next_is_pre_step:
         raise RuntimeError(
             "Hybrid MD steps called in the wrong order, expected post-step"
         )
 
-    # decision making & update of state object
+    # decision-making & update of state object
     decision = get_decision_maker(state).get_step_kind(md_iteration)
     converter = PreStepReturnNumber(state)
     return_value = converter.push_state(decision)
 
     # dump state
-    state.dump()
+    state.carry.dump()
 
     if VERBOSE:
         print(
@@ -121,14 +121,14 @@ def post_step(seed, md_iteration):
 
     # state of object
     state = HybridMD(seed, md_iteration)
-    state.load()
-    if state.next_is_pre_step:
+    state.carry.load()
+    if state.carry.next_is_pre_step:
         raise RuntimeError(
             "Hybrid MD steps called in the wrong order, expected pre-step"
         )
 
     # main logic
-    if state.do_comparison:
+    if state.carry.do_comparison:
         # 1. read output
         # 2. calculate E, F, S errors for this frame and cumulatively, force by species
         state.read_xyz()
@@ -136,31 +136,31 @@ def post_step(seed, md_iteration):
         # 3. decide if we are fitting or not
         tolerance_met = state.check_tolerances()
         if not tolerance_met and state.settings.can_update:
-            state.do_update_model = True
+            state.carry.do_update_model = True
 
         # 4. IO: errors of this step and cumulative ones as well
         state.error_table()
         state.cumulative_error_table()
 
-    # 5. update model -- triggered by either pre or post step
-    if state.do_update_model:
+    # 5. update model -- triggered by either pre- or post-step
+    if state.carry.do_update_model:
         refit(state)
 
     # 6. post-step call to decision maker
     get_decision_maker(state).post_step_action(md_iteration)
 
     # save state
-    state.next_is_pre_step = True
-    state.dump()
+    state.carry.next_is_pre_step = True
+    state.carry.dump()
 
     if VERBOSE:
         print(
             f"Hybrid-MD: POST Step, exit:"
-            f"{int(state.do_update_model):4}, md_iteration:{md_iteration:3}"
+            f"{int(state.carry.do_update_model):4}, md_iteration:{md_iteration:3}"
         )
 
     # exit status -- log reading always ON
-    exit_code = int(state.do_comparison) + 2 * int(state.do_update_model)
+    exit_code = int(state.carry.do_comparison) + 2 * int(state.carry.do_update_model)
     sys.exit(exit_code)
 
 

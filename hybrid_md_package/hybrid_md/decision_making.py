@@ -92,41 +92,41 @@ class AdaptiveDecisionMaker(DecisionMakerBase):
     def get_step_kind(self, md_iteration: int) -> StepKinds:
 
         if md_iteration < self.state.settings.num_initial_steps:
-            self.state.current_check_interval = self.state.settings.check_interval
+            self.state.carry.current_check_interval = self.state.settings.check_interval
             return StepKinds.INITIAL
         elif self.state.settings.num_initial_steps == 0 and md_iteration == 0:
             # to function in case we have no initial steps
-            self.state.last_check_step = 0
+            self.state.carry.last_check_step = 0
 
         if md_iteration == self.state.settings.num_initial_steps:
             # we need to remember this one as well
-            self.state.current_check_interval = self.state.settings.check_interval
-            self.state.last_check_step = md_iteration
+            self.state.carry.current_check_interval = self.state.settings.check_interval
+            self.state.carry.last_check_step = md_iteration
             return StepKinds.LAST_INITIAL
 
         if (
-            md_iteration - self.state.last_check_step
-        ) == self.state.current_check_interval:
+            md_iteration - self.state.carry.last_check_step
+        ) == self.state.carry.current_check_interval:
             # This is the crucial difference
-            self.state.last_check_step = md_iteration
+            self.state.carry.last_check_step = md_iteration
             return StepKinds.CHECK
 
         return StepKinds.GENERIC
 
     def post_step_action(self, md_iteration: int):
         # we change the step size in case we had a checking step
-        if self.state.do_comparison:
+        if self.state.carry.do_comparison:
             if self.state.check_tolerances():
                 # increase N
-                self.state.current_check_interval = min(
-                    int(self.state.current_check_interval * self.factor),
+                self.state.carry.current_check_interval = min(
+                    int(self.state.carry.current_check_interval * self.factor),
                     self.n_max,
                 )
                 word = "INCREASE"
             else:
                 # decrease N
-                self.state.current_check_interval = max(
-                    int(self.state.current_check_interval / self.factor),
+                self.state.carry.current_check_interval = max(
+                    int(self.state.carry.current_check_interval / self.factor),
                     self.n_min,
                 )
                 word = "DECREASE"
@@ -135,7 +135,7 @@ class AdaptiveDecisionMaker(DecisionMakerBase):
             self.state.write_to_tmp_log(
                 [
                     f"               Hybrid-MD: {word} interval to "
-                    f"{self.state.current_check_interval:6} "
+                    f"{self.state.carry.current_check_interval:6} "
                     f"at iter {md_iteration:8}"
                     f"   <-- Hybrid-MD-Adapt"
                 ],
@@ -176,13 +176,13 @@ class PreStepReturnNumber:
         self._set_internals(value)
 
         # save values into state
-        self.state.next_is_pre_step = False
-        self.state.next_ab_initio = self.next_ab_initio
-        self.state.do_comparison = self.do_comparison
+        self.state.carry.next_is_pre_step = False
+        self.state.carry.next_ab_initio = self.next_ab_initio
+        self.state.carry.do_comparison = self.do_comparison
 
         if self.do_update_model:
             if self.state.settings.can_update:
-                self.state.do_update_model = self.do_update_model
+                self.state.carry.do_update_model = self.do_update_model
             else:
                 raise RuntimeError(
                     "Tried to update model, but input settings do not allow it!"
