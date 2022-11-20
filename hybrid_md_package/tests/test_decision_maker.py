@@ -1,3 +1,6 @@
+#  Hybrid MD decision making package
+#
+#  Copyright (c) Tamas K. Stenczel 2021-2022.
 import os
 from pathlib import Path
 

@@ -1,3 +1,6 @@
+#  Hybrid MD decision making package
+#
+#  Copyright (c) Tamas K. Stenczel 2021-2022.
 """
 Decision maker utilities for the Hybrid MD
 """
