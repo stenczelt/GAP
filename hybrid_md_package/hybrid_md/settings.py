@@ -9,7 +9,6 @@ import yaml
 
 class Settings:
     # tolerance
-    tolerance_met = True
     tolerances = dict(
         ediff=None,  # in eV
         fmax=None,  # in eV/A

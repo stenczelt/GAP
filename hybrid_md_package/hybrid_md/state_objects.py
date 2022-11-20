@@ -82,9 +82,6 @@ class HybridMD:
 
     def _tolerance_line(self, name: str, value: float, tolerance, unit: str):
         if tolerance is not None:
-            # checks tolerance as well
-            self.tolerance_met = self.settings.tolerances and tolerance > value
-
             # line to be printed
             yes_no = self._bool_to_str(tolerance > value)
 

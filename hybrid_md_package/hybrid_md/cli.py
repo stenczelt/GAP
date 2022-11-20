@@ -134,8 +134,7 @@ def post_step(seed, md_iteration):
         state.read_xyz()
 
         # 3. decide if we are fitting or not
-        tolerance_met = state.check_tolerances()
-        if not tolerance_met and state.settings.can_update:
+        if not state.check_tolerances() and state.settings.can_update:
             state.carry.do_update_model = True
 
         # 4. IO: errors of this step and cumulative ones as well
