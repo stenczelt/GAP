@@ -4,6 +4,7 @@
 """
 Objects representing the state of a calculation
 """
+import os
 from abc import ABC
 from enum import Enum, auto, unique
 
@@ -41,6 +42,55 @@ class HybridMD:
         # dummy arrays for results
         self.md_iteration = md_iteration
 
+        # misc
+        self._continuation_log_lines = None
+
+    def handle_continuation(self):
+        """Continuation of the calculation
+
+        needs to do the following:
+        - todo: back up the previous DFT data (xyz in new file)
+        - figure out the checking interval & last check step
+        """
+
+        if os.path.isfile(self.carry.state_filename):
+            # easy case: state has not disappeared
+            self.carry.load()
+
+            self._continuation_log_lines = [
+                "CONTINUATION: read previous calculation's state"
+            ]
+
+            # what if the MD's restart was saved before the last check step and
+            # the job only stopped after the checking has been done?
+            last_step_in_carry = self.carry.last_check_step
+            if self.md_iteration > last_step_in_carry:
+                self._continuation_log_lines.append(
+                    "- checking step was between restart file written and job end"
+                )
+
+                self.carry.last_check_step = self.md_iteration - 1
+                new_check_interval = self.md_iteration - last_step_in_carry
+
+                # apply upper bound to this
+                if self.settings.adaptive_method_parameters:
+                    # max of adaptive method
+                    new_check_interval = self.settings.adaptive_method_parameters.n_max
+                    self._continuation_log_lines.append(
+                        "- capped the checking interval due to n_max of adaptive method"
+                    )
+
+                # change the carried state
+                self.carry.last_check_step = self.md_iteration - 1
+                self.carry.current_check_interval = new_check_interval
+
+        else:
+            # just use the current settings & raise warning for the user
+            self._continuation_log_lines = [
+                f"CONTINUATION: WARNING Have not found previous state file ({self.carry.state_filename}), ",
+                f"so cannot perform clean restart. We are using the current input file's settings instead.",
+            ]
+
     # -----------------------------------------------------------------------------------
     # step's IO
 
@@ -52,6 +102,10 @@ class HybridMD:
 
         lines.append("! end of input file" + "-" * 61)
         lines.append("")
+
+        # add lines from continuation method
+        if self._continuation_log_lines is not None:
+            lines.extend(self._continuation_log_lines)
 
         self.write_to_tmp_log(lines, append=False)
 

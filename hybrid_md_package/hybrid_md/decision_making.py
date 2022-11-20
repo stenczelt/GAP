@@ -85,9 +85,7 @@ class AdaptiveDecisionMaker(DecisionMakerBase):
 
     def __init__(self, state: HybridMD):
         super().__init__(state)
-
         self.settings = state.settings.adaptive_method_parameters
-
         self.step_kind = None
 
     def get_step_kind(self, md_iteration: int) -> StepKinds:
@@ -98,20 +96,17 @@ class AdaptiveDecisionMaker(DecisionMakerBase):
         elif self.state.settings.num_initial_steps == 0 and md_iteration == 0:
             # to function in case we have no initial steps
             self.state.carry.last_check_step = 0
-
         if md_iteration == self.state.settings.num_initial_steps:
             # we need to remember this one as well
             self.state.carry.current_check_interval = self.state.settings.check_interval
             self.state.carry.last_check_step = md_iteration
             return StepKinds.LAST_INITIAL
-
         if (
             md_iteration - self.state.carry.last_check_step
         ) == self.state.carry.current_check_interval:
             # This is the crucial difference
             self.state.carry.last_check_step = md_iteration
             return StepKinds.CHECK
-
         return StepKinds.GENERIC
 
     def post_step_action(self, md_iteration: int):
