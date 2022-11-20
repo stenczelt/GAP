@@ -11,7 +11,7 @@ import ase.io
 import numpy as np
 import yaml
 
-from hybrid_md.settings import Settings
+from hybrid_md.settings import MainSettings
 
 
 @unique
@@ -28,29 +28,18 @@ class HybridMD:
     def __init__(self, seed: str, md_iteration: int = None):
         self.seed = seed
 
-        # associated sub-state objects
-        self.xyz_this_run = SubStateXYZ(seed)
-        self.settings = Settings()
-        self.carry = CarriedState(seed)
-
+        # files of interest
         self.log_filename = f"{self.seed}.hybrid-md-temporary-log"
         self.input_filename = f"{self.seed}.hybrid-md-input.yaml"
         self.xyz_filename = f"{self.seed}.hybrid-md.xyz"
 
-        # read input -> tolerances, etc.
-        self.read_input()
+        # associated sub-state objects
+        self.xyz_this_run = SubStateXYZ(seed)
+        self.carry = CarriedState(seed)
+        self.settings = MainSettings.read_input(self.input_filename)
 
         # dummy arrays for results
         self.md_iteration = md_iteration
-
-        # validation
-        self.settings.validate()
-
-    # -----------------------------------------------------------------------------------
-    # IO for carried info
-
-    def read_input(self):
-        self.settings.read_input(self.input_filename)
 
     # -----------------------------------------------------------------------------------
     # step's IO
@@ -185,7 +174,7 @@ class HybridMD:
     def get_tolerance(self, key: str):
         if not self.xyz_this_run.use_virial and key in ["vmax"]:
             return None
-        return self.settings.tolerances.get(key, None)
+        return self.settings.tolerances.get(key)
 
     # -----------------------------------------------------------------------------------
     # XYZ IO
@@ -194,11 +183,11 @@ class HybridMD:
 
     def get_previous_data(self):
         # read the previous data from files given
-        if self.settings.previous_data is None:
+        if self.settings.refit.previous_data is None:
             return []
         else:
             frames = []
-            for fn in self.settings.previous_data:
+            for fn in self.settings.refit.previous_data:
                 frames.extend(ase.io.read(fn, ":"))
             return frames
 

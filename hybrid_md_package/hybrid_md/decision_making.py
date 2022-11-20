@@ -8,7 +8,7 @@ from hybrid_md.state_objects import HybridMD, StepKinds
 
 
 def get_decision_maker(state: HybridMD):
-    if len(state.settings.adaptive_method_parameters) > 0:
+    if state.settings.adaptive_method_parameters:
         return AdaptiveDecisionMaker(state)
     else:
         return SimpleDecisionMaker(state)
@@ -83,9 +83,7 @@ class AdaptiveDecisionMaker(DecisionMakerBase):
     def __init__(self, state: HybridMD):
         super().__init__(state)
 
-        self.n_min = state.settings.adaptive_method_parameters.get("n_min")
-        self.n_max = state.settings.adaptive_method_parameters.get("n_max")
-        self.factor = state.settings.adaptive_method_parameters.get("factor")
+        self.settings = state.settings.adaptive_method_parameters
 
         self.step_kind = None
 
@@ -119,15 +117,15 @@ class AdaptiveDecisionMaker(DecisionMakerBase):
             if self.state.check_tolerances():
                 # increase N
                 self.state.carry.current_check_interval = min(
-                    int(self.state.carry.current_check_interval * self.factor),
-                    self.n_max,
+                    int(self.state.carry.current_check_interval * self.settings.factor),
+                    self.settings.n_max,
                 )
                 word = "INCREASE"
             else:
                 # decrease N
                 self.state.carry.current_check_interval = max(
-                    int(self.state.carry.current_check_interval / self.factor),
-                    self.n_min,
+                    int(self.state.carry.current_check_interval / self.settings.factor),
+                    self.settings.n_min,
                 )
                 word = "DECREASE"
 

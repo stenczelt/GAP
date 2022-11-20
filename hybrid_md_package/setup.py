@@ -10,7 +10,14 @@ setuptools.setup(
     name="hybrid_md",
     version="0.0.1",
     packages=setuptools.find_packages(),
-    install_requires=["click>=7.0", "numpy", "ase", "pyyaml"],
+    install_requires=[
+        "click>=7.0",
+        "numpy",
+        "ase",
+        "pyyaml",
+        "marshmallow",
+        "marshmallow_dataclass",
+    ],
     entry_points="""
     [console_scripts]
     hybrid-md=hybrid_md.cli:main
