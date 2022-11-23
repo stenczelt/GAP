@@ -6,7 +6,7 @@ CLI of hybrid MD implementation.
 
 The QM calculators should call this with the subcommands at correct points in the calculation.
 """
-
+import shutil
 import sys
 
 import click
@@ -37,12 +37,14 @@ def initialise(seed, md_iteration):
     """
 
     # create the initial state object
-    state = HybridMD(seed)
+    state = HybridMD(seed, md_iteration)
     state.carry.current_check_interval = state.settings.check_interval
     state.carry.next_is_pre_step = True
 
     # decide if we are continuing a calculation
     continuation = md_iteration > 0
+    if continuation:
+        state.handle_continuation()
 
     # write state to disc, only `next_is_pre_step` relevant though
     state.carry.dump()
@@ -94,6 +96,9 @@ def pre_step(seed, md_iteration):
 
     # dump state
     state.carry.dump()
+
+    # DEBUG:
+    shutil.copy(state.carry.state_filename, f"state-{md_iteration}.yaml")
 
     if VERBOSE:
         print(

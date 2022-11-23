@@ -59,15 +59,19 @@ class SimpleDecisionMaker(DecisionMakerBase):
         -------
         step_kind
         """
-        if md_iteration < self.state.settings.num_initial_steps:
+
+        if self.state.carry.continuation:
+            num_initial_steps = self.state.carry.continuation_initial_steps
+        else:
+            num_initial_steps = self.state.settings.num_initial_steps
+
+        if md_iteration < num_initial_steps:
             return StepKinds.INITIAL
 
-        if md_iteration == self.state.settings.num_initial_steps:
+        if md_iteration == num_initial_steps:
             return StepKinds.LAST_INITIAL
 
-        if (
-            md_iteration - self.state.settings.num_initial_steps
-        ) % self.state.settings.check_interval == 0:
+        if (md_iteration - num_initial_steps) % self.state.settings.check_interval == 0:
             return StepKinds.CHECK
 
         return StepKinds.GENERIC
@@ -90,13 +94,18 @@ class AdaptiveDecisionMaker(DecisionMakerBase):
 
     def get_step_kind(self, md_iteration: int) -> StepKinds:
 
-        if md_iteration < self.state.settings.num_initial_steps:
+        if self.state.carry.continuation:
+            num_initial_steps = self.state.carry.continuation_initial_steps
+        else:
+            num_initial_steps = self.state.settings.num_initial_steps
+
+        if md_iteration < num_initial_steps:
             self.state.carry.current_check_interval = self.state.settings.check_interval
             return StepKinds.INITIAL
-        elif self.state.settings.num_initial_steps == 0 and md_iteration == 0:
+        elif num_initial_steps == 0 and md_iteration == 0:
             # to function in case we have no initial steps
             self.state.carry.last_check_step = 0
-        if md_iteration == self.state.settings.num_initial_steps:
+        if md_iteration == num_initial_steps:
             # we need to remember this one as well
             self.state.carry.current_check_interval = self.state.settings.check_interval
             self.state.carry.last_check_step = md_iteration

@@ -87,9 +87,42 @@ class HybridMD:
         else:
             # just use the current settings & raise warning for the user
             self._continuation_log_lines = [
-                f"CONTINUATION: WARNING Have not found previous state file ({self.carry.state_filename}), ",
+                "CONTINUATION: ",
+                f"WARNING Have not found previous state file ({self.carry.state_filename}), ",
                 f"so cannot perform clean restart. We are using the current input file's settings instead.",
             ]
+
+        # --------------------------------------
+        # deal with the number of initial steps:
+        #  - this is not a common use-case, but needed for the logic to make sense
+        #  - decrease the number of them in case the calculation stopped while in the initial stage
+        #  - notice that one can restart a calculation in this state, and then restart again
+        #  while still being in the initial stage (not expected to be a true use-case though)
+        #
+        if self.carry.continuation:
+            previous_num_initial_steps = self.carry.continuation_initial_steps
+        else:
+            previous_num_initial_steps = self.settings.num_initial_steps
+
+        if self.md_iteration < previous_num_initial_steps:
+            self._continuation_log_lines.append(
+                "INFO: Continuing calculation from before initial ab-initio steps were completed."
+            )
+
+            # decrease the number of initial steps
+            self.carry.continuation_initial_steps = (
+                previous_num_initial_steps - self.md_iteration
+            )
+
+        # --------------------------------------
+        # keep track of this for the rest of the calculation
+        self.carry.continuation = True
+        self.carry.last_check_step -= self.md_iteration
+
+        # add line breaks to the ends of lines
+        self._continuation_log_lines = ["\n"] + [
+            x + "\n" for x in self._continuation_log_lines
+        ]
 
     # -----------------------------------------------------------------------------------
     # step's IO
@@ -106,6 +139,9 @@ class HybridMD:
         # add lines from continuation method
         if self._continuation_log_lines is not None:
             lines.extend(self._continuation_log_lines)
+
+        print("Writing the following lines to the initial IO's tmp file:")
+        print(lines)
 
         self.write_to_tmp_log(lines, append=False)
 
@@ -264,6 +300,9 @@ class CarriedState(SeedAwareState):
     next_is_pre_step = True  # do them in order
     last_check_step = -1
     current_check_interval = -1
+    # for continuation runs we need this, e.g. initial steps
+    continuation = False
+    continuation_initial_steps = 0
 
     def __init__(self, seed: str):
         super().__init__(seed)
@@ -288,6 +327,8 @@ class CarriedState(SeedAwareState):
             next_ab_initio=self.next_ab_initio,
             last_check_step=self.last_check_step,
             current_check_interval=self.current_check_interval,
+            continuation=self.continuation,
+            continuation_initial_steps=self.continuation_initial_steps,
         )
 
     def unpack_dump(self, values: dict):
@@ -297,6 +338,8 @@ class CarriedState(SeedAwareState):
         self.next_ab_initio = values.get("next_ab_initio")
         self.last_check_step = values.get("last_check_step")
         self.current_check_interval = values.get("current_check_interval")
+        self.continuation = values.get("continuation", False)
+        self.continuation_initial_steps = values.get("continuation_initial_steps", 0)
 
     def reset(self):
         # reset the info
