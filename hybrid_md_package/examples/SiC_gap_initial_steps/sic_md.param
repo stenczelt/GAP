@@ -17,11 +17,8 @@ task = molecular dynamics
 # These settings make sure that forces printed in .md have no thermostat contribution
 md_ensemble = NVT
 md_thermostat = NOSE-HOOVER
-md_barostat   = Parrinello-Rahman
-md_ion_t = 500 fs
-md_cell_t = 2000 fs
 md_delta_t = 2 fs
-md_num_iter = 50
+md_num_iter = 500
 md_temperature = 75 K
 md_sample_iter = 10
 
@@ -44,3 +41,8 @@ md_sample_iter = 10
     hybrid-md
   :endmd_pp_hybrid_exec
 %ENDBLOCK DEVEL_CODE
+
+
+# allow restarting the calculation
+NUM_BACKUP_ITER = 10
+continuation: default
