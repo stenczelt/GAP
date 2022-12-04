@@ -46,9 +46,6 @@ def initialise(seed, md_iteration):
     if continuation:
         state.handle_continuation()
 
-    # write state to disc, only `next_is_pre_step` relevant though
-    state.carry.dump()
-
     if VERBOSE:
         print(
             f"Hybrid-MD: INIT Step, exit: {0 if state.settings.num_initial_steps == 0 else 1} "

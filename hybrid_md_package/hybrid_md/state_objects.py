@@ -52,6 +52,7 @@ class HybridMD:
         - `self.md_iteration` is the step at the end of which the checkpoint was made
         - the last check step can be after the checkpoint was made, so we need to
         deal with that
+        - in case of the adaptive method, we will try to do GAP up to the desired
 
         needs to do the following:
         - todo: back up the previous DFT data (xyz in new file)
@@ -151,7 +152,6 @@ class HybridMD:
         # --------------------------------------
         # keep track of this for the rest of the calculation
         self.carry.continuation = True
-        self.carry.last_check_step -= self.md_iteration
 
         self._continuation_log_lines.append(
             "! end of continuation info ---------------------------------------------------"
