@@ -48,6 +48,11 @@ class HybridMD:
     def handle_continuation(self):
         """Continuation of the calculation
 
+        notes:
+        - `self.md_iteration` is the step at the end of which the checkpoint was made
+        - the last check step can be after the checkpoint was made, so we need to
+        deal with that
+
         needs to do the following:
         - todo: back up the previous DFT data (xyz in new file)
         - figure out the checking interval & last check step
@@ -58,32 +63,61 @@ class HybridMD:
             self.carry.load()
 
             self._continuation_log_lines = [
-                "CONTINUATION: read previous calculation's state"
+                "CONTINUATION: read previous calculation's state",
+                f"   MD iteration of checkpoint: {self.md_iteration}",
+                f"   MD iteration of last ab-inito calculation: {self.carry.last_check_step}",
             ]
 
-            # what if the MD's restart was saved before the last check step and
-            # the job only stopped after the checking has been done?
-            last_step_in_carry = self.carry.last_check_step
-            if self.md_iteration > last_step_in_carry:
+            # unpack the previous calculation's variables
+            pre_last_check_step = self.carry.last_check_step
+            pre_check_interval = self.carry.current_check_interval
+            pre_restart_written = self.md_iteration
+            pre_next_check = pre_last_check_step + pre_check_interval
+
+            if pre_last_check_step <= pre_restart_written:
+                # easy case: checkpoint was written after last ab-initio step
+                new_check_interval = pre_check_interval
+                new_last_check_step = pre_last_check_step - pre_restart_written
                 self._continuation_log_lines.append(
-                    "- checking step was between restart file written and job end"
+                    "  - checkpoint was written after last ab-inito step, no settings were changed"
+                )
+            else:
+                # at least one ab-inito step was made after the checkpoint was written
+                self._continuation_log_lines.append(
+                    "  - checkpoint was written before last ab-inito step, settings updated"
                 )
 
-                self.carry.last_check_step = self.md_iteration - 1
-                new_check_interval = self.md_iteration - last_step_in_carry
-
-                # apply upper bound to this
                 if self.settings.adaptive_method_parameters:
-                    # max of adaptive method
-                    new_check_interval = self.settings.adaptive_method_parameters.n_max
-                    self._continuation_log_lines.append(
-                        "- capped the checking interval due to n_max of adaptive method"
-                    )
+                    # adaptive method: cap the interval to the maximum
+                    new_check_interval = pre_next_check - pre_restart_written
+                    if (
+                        self.settings.adaptive_method_parameters.n_max
+                        < new_check_interval
+                    ):
+                        new_check_interval = (
+                            self.settings.adaptive_method_parameters.n_max
+                        )
+                        self._continuation_log_lines.append(
+                            "  - new check interval capped by n_max of adaptive method"
+                        )
+                else:
+                    # otherwise unchanged check interval
+                    new_check_interval = pre_check_interval
 
-                # change the carried state
-                self.carry.last_check_step = self.md_iteration - 1
-                self.carry.current_check_interval = new_check_interval
+                # as if the last step was ab-inito, so we can utilise the whole
+                # interval set right now
+                new_last_check_step = 0
 
+            # apply updates to the carried state
+            self.carry.last_check_step = new_last_check_step
+            self.carry.current_check_interval = new_check_interval
+
+            self._continuation_log_lines.extend(
+                [
+                    f"   MD step of last check according to this run's counting: {new_last_check_step}",
+                    f"   MD check interval: {new_check_interval}",
+                ]
+            )
         else:
             # just use the current settings & raise warning for the user
             self._continuation_log_lines = [
@@ -118,6 +152,10 @@ class HybridMD:
         # keep track of this for the rest of the calculation
         self.carry.continuation = True
         self.carry.last_check_step -= self.md_iteration
+
+        self._continuation_log_lines.append(
+            "! end of continuation info ---------------------------------------------------"
+        )
 
         # add line breaks to the ends of lines
         self._continuation_log_lines = ["\n"] + [
