@@ -53,6 +53,9 @@ def initialise(seed, md_iteration):
             f" -- continuation {continuation}",
         )
 
+    # write state to disc, only `next_is_pre_step` relevant though
+    state.carry.dump()
+
     # write the log for the .castep file
     state.io_initial_step_banner()
 
