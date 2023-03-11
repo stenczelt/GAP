@@ -43,7 +43,8 @@ Contents
    tutorials.rst
    reference.rst
    data.rst
-   
+   accelerated-aimd.rst
+
 Indices and tables
 ==================
 
